@@ -1,0 +1,6 @@
+# Cloudflare Pages reads this file. (GitHub Pages ignores it.)
+# Format:  /from   /to   [status]
+# Docs: https://developers.cloudflare.com/pages/configuration/redirects/
+#
+# Example:
+# /old-page   /new-page   301

@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>hsyvy — static site</title>
+  <meta name="description" content="Static site served via Cloudflare Pages, backed up on GitHub Pages." />
+  <!-- Relative path (no leading slash) so this works at domain root AND under /<repo>/ on GitHub Pages -->
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body>
+  <main>
+    <h1>It's live.</h1>
+    <p>
+      This page is served from <code>public/index.html</code> in the GitHub repo.
+      Every push to <code>main</code> auto-deploys to Cloudflare Pages (primary)
+      and GitHub Pages (backup).
+    </p>
+    <p>Replace this file with your real content.</p>
+    <footer>
+      <a href="https://github.com/">repo</a>
+    </footer>
+  </main>
+</body>
+</html>
