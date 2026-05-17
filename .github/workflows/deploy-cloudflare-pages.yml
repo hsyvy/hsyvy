@@ -28,5 +28,9 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          # First run creates the "hsyvy" Pages project → https://hsyvy.pages.dev
-          command: pages deploy public --project-name=hsyvy --branch=main
+          # `pages deploy` does NOT auto-create the project — make it first
+          # (idempotent: a second run just reports it already exists).
+          preCommands: |
+            npx wrangler pages project create hsyvy --production-branch=main || echo "project 'hsyvy' already exists — continuing"
+          # First successful run lands it at https://hsyvy.pages.dev
+          command: pages deploy public --project-name=hsyvy --branch=main --commit-dirty=true
