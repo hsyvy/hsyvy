@@ -45,10 +45,11 @@ git commit -m "Initial static site scaffold"
 gh repo create hsyvy --public --source=. --push
 ```
 
-### 2. Enable GitHub Pages (backup)
+### 2. GitHub Pages (backup) — automatic
 
-Repo → **Settings → Pages → Build and deployment → Source: GitHub Actions**.
-The included workflow then publishes `public/` to `https://<user>.github.io/hsyvy/`.
+No action needed. The workflow uses `actions/configure-pages` with
+`enablement: true`, so the first run enables Pages itself and publishes
+`public/` to `https://<user>.github.io/hsyvy/`.
 
 ### 3. Connect Cloudflare Pages (primary)
 
