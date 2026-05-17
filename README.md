@@ -45,11 +45,20 @@ git commit -m "Initial static site scaffold"
 gh repo create hsyvy --public --source=. --push
 ```
 
-### 2. GitHub Pages (backup) — automatic
+### 2. Enable GitHub Pages (backup) — one-time
 
-No action needed. The workflow uses `actions/configure-pages` with
-`enablement: true`, so the first run enables Pages itself and publishes
-`public/` to `https://<user>.github.io/hsyvy/`.
+The workflow has `actions/configure-pages` with `enablement: true`, but the
+repo's Actions `GITHUB_TOKEN` is usually **not** allowed to create a Pages
+site (`Resource not accessible by integration`). So enable it once with an
+owner-scoped token — either:
+
+```sh
+gh api -X POST repos/<owner>/hsyvy/pages -f build_type=workflow
+```
+
+or the dashboard: **Settings → Pages → Build and deployment → Source:
+GitHub Actions**. After that the workflow publishes `public/` to
+`https://<user>.github.io/hsyvy/` on every push. (Already done for this repo.)
 
 ### 3. Connect Cloudflare Pages (primary)
 
