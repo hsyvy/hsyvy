@@ -60,19 +60,35 @@ or the dashboard: **Settings → Pages → Build and deployment → Source:
 GitHub Actions**. After that the workflow publishes `public/` to
 `https://<user>.github.io/hsyvy/` on every push. (Already done for this repo.)
 
-### 3. Connect Cloudflare Pages (primary)
+### 3. Cloudflare Pages (primary) — one-time
 
-Cloudflare dashboard → **Workers & Pages → Create → Pages → Connect to Git** →
-pick the `hsyvy` repo, then:
+`.github/workflows/deploy-cloudflare-pages.yml` runs `wrangler pages deploy`
+on every push, which **deterministically** creates/updates the `hsyvy` Pages
+project → `https://hsyvy.pages.dev` (no account-subdomain segment). The
+dashboard "Connect to Git" flow is avoided because it now provisions a
+*Worker* (`*.workers.dev`) instead of Pages.
 
-| Setting                 | Value     |
-|-------------------------|-----------|
-| Framework preset        | `None`    |
-| Build command           | *(empty)* |
-| Build output directory  | `public`  |
-| Production branch        | `main`    |
+It needs two repo secrets:
 
-Save & Deploy → live at `https://hsyvy.pages.dev` (auto-deploys on push).
+1. **API token** — Cloudflare dash → My Profile → API Tokens → Create Token →
+   template *"Cloudflare Workers"* (or custom: Account · Cloudflare Pages ·
+   Edit). Copy it.
+2. **Account ID** — Cloudflare dash → Workers & Pages → right sidebar.
+3. Add both:
+
+   ```sh
+   gh secret set CLOUDFLARE_API_TOKEN
+   gh secret set CLOUDFLARE_ACCOUNT_ID
+   ```
+
+The next push (or Actions → *Deploy to Cloudflare Pages* → Run workflow)
+publishes to `https://hsyvy.pages.dev`. Until the secrets exist the job
+no-ops with a green check, so it never blocks other pushes.
+
+> The originally auto-created **Worker** (`hsyvy.<acct>.workers.dev`) is
+> redundant — delete it: Workers & Pages → `hsyvy` (Worker) → Settings →
+> Delete, or `wrangler delete --name hsyvy`. `wrangler.jsonc` (Worker
+> config) was removed from this repo for the same reason.
 
 ## Adding a custom domain later
 

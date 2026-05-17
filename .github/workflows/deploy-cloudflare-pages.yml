@@ -1,0 +1,32 @@
+name: Deploy to Cloudflare Pages (primary)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+    env:
+      # Job-level so it can be tested in `if:` before secrets exist.
+      CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    steps:
+      - name: Note when Cloudflare secrets are absent
+        if: env.CF_TOKEN == ''
+        run: echo "::notice::CLOUDFLARE_API_TOKEN not set — skipping Cloudflare Pages deploy (configure it to enable hsyvy.pages.dev)."
+
+      - uses: actions/checkout@v4
+        if: env.CF_TOKEN != ''
+
+      - name: Publish public/ to Cloudflare Pages
+        if: env.CF_TOKEN != ''
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # First run creates the "hsyvy" Pages project → https://hsyvy.pages.dev
+          command: pages deploy public --project-name=hsyvy --branch=main
