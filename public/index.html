@@ -3,23 +3,62 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>hsyvy — static site</title>
-  <meta name="description" content="Static site served via Cloudflare Pages, backed up on GitHub Pages." />
-  <!-- Relative path (no leading slash) so this works at domain root AND under /<repo>/ on GitHub Pages -->
+  <title>Himanshu Singh — self-published, issue 01</title>
+  <meta name="description" content="Himanshu Singh — building product. Started 27 repositories, finished a respectable fraction. Printed in one pass, misregistration intentional." />
+  <meta property="og:title" content="Himanshu Singh — issue 01" />
+  <meta property="og:description" content="Building product. AI agents, generative math art, competitive programming, and the Bhagavad Gita." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="assets/styles.css" />
 </head>
 <body>
-  <main>
-    <h1>It's live.</h1>
-    <p>
-      This page is served from <code>public/index.html</code> in the GitHub repo.
-      Every push to <code>main</code> auto-deploys to Cloudflare Pages (primary)
-      and GitHub Pages (backup).
+  <div class="grain" aria-hidden="true"></div>
+  <div class="halftone" aria-hidden="true"></div>
+
+  <main class="zine">
+
+    <header class="masthead">
+      <span class="stamp">✺ SELF-PUBLISHED · ISSUE 01 · 2026</span>
+      <span class="barcode" aria-hidden="true">█▌║▌█▍║▌▏█▌║▍█</span>
+    </header>
+
+    <h1 class="title" data-text="HI, I'M&#10;HIMANSHU&#10;SINGH.">HI, I'M<br />HIMANSHU<br />SINGH.</h1>
+
+    <p class="kicker">
+      Professional starter of 27&nbsp;repositories, amateur finisher
+      of about six, full-time <strong>building product</strong>.
     </p>
-    <p>Replace this file with your real content.</p>
-    <footer>
-      <a href="https://github.com/">repo</a>
+
+    <section class="interests" aria-labelledby="into">
+      <h2 id="into" class="section-label">STUFF I'M INTO →</h2>
+      <ul class="tags">
+        <li class="tag">Building AI agents</li>
+        <li class="tag">Generative math art</li>
+        <li class="tag">Competitive programming</li>
+        <li class="tag">Tiny writing apps</li>
+        <li class="tag">ARC-AGI puzzles</li>
+        <li class="tag">The Bhagavad Gita</li>
+      </ul>
+    </section>
+
+    <section class="clipping" aria-label="about">
+      <p>
+        27 repos in, still convinced the next one's the one. Currently
+        building product — occasionally putting it down to read the
+        Gita and quietly question the entire enterprise.
+      </p>
+    </section>
+
+    <nav class="links" aria-label="find me">
+      <a class="chip chip--pink" href="https://github.com/hsyvy">GitHub ↗ @hsyvy</a>
+      <a class="chip chip--blue" href="https://x.com/hsyvy">X ↗ @hsyvy</a>
+    </nav>
+
+    <footer class="colophon">
+      Printed in one pass. Misregistration intentional.
     </footer>
+
   </main>
 </body>
 </html>

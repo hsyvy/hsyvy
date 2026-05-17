@@ -3,13 +3,30 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>404 — Not found</title>
+  <title>404 — page not printed</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="assets/styles.css" />
 </head>
 <body>
-  <main>
-    <h1>404</h1>
-    <p>That page doesn't exist. <a href="/">Go home</a>.</p>
+  <div class="grain" aria-hidden="true"></div>
+  <div class="halftone" aria-hidden="true"></div>
+
+  <main class="zine">
+    <header class="masthead">
+      <span class="stamp">✺ MISPRINT</span>
+      <span class="barcode" aria-hidden="true">█▌║▌█▍║▌▏█▌║▍█</span>
+    </header>
+
+    <h1 class="title" data-text="404">404</h1>
+    <p class="kicker">This page didn't make it through the press. The ink ran out, or it never existed. Either way — not here.</p>
+
+    <nav class="links" aria-label="recover">
+      <a class="chip chip--pink" href="/">← Back to page one</a>
+    </nav>
+
+    <footer class="colophon">Printed in one pass. This one smudged.</footer>
   </main>
 </body>
 </html>
