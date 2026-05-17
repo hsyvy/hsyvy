@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>X "For You" Algorithm — Architecture Deep Dive</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  :root{
+    --bg:#0b0e14; --bg2:#11151f; --card:#151a24; --card2:#1a2030;
+    --border:#262d3d; --border2:#333c52;
+    --tx:#e6edf3; --mut:#8b97a8; --dim:#5d6878;
+    --acc:#4ea1ff; --acc2:#36d6c3; --pos:#3fb950; --neg:#f85149; --warn:#e3b341; --pur:#bc8cff;
+    --mono:'SF Mono',"JetBrains Mono",ui-monospace,"Cascadia Code",Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{background:var(--bg);color:var(--tx);font-family:var(--sans);line-height:1.65;font-size:15.5px}
+  ::selection{background:rgba(78,161,255,.3)}
+  a{color:var(--acc);text-decoration:none}
+  a:hover{text-decoration:underline}
+  code{font-family:var(--mono);font-size:.85em;background:#0d1117;border:1px solid var(--border);
+    padding:1px 6px;border-radius:5px;color:#9dd0ff;white-space:nowrap}
+  pre{font-family:var(--mono);background:#0a0d13;border:1px solid var(--border);border-radius:10px;
+    padding:16px 18px;overflow-x:auto;font-size:13px;line-height:1.6;color:#cdd6e3;margin:14px 0}
+  pre code{background:none;border:none;padding:0;white-space:pre;color:inherit;font-size:inherit}
+  .layout{display:flex;max-width:1500px;margin:0 auto}
+
+  /* sidebar */
+  nav.side{width:288px;flex:0 0 288px;height:100vh;position:sticky;top:0;overflow-y:auto;
+    border-right:1px solid var(--border);padding:26px 14px 60px;background:var(--bg)}
+  nav.side h2{font-size:11px;letter-spacing:.16em;color:var(--dim);text-transform:uppercase;
+    margin:22px 12px 8px;font-weight:700}
+  nav.side h2:first-child{margin-top:0}
+  nav.side a{display:block;color:var(--mut);font-size:13.5px;padding:6px 12px;border-radius:7px;
+    border-left:2px solid transparent;transition:.15s}
+  nav.side a:hover{background:var(--card);color:var(--tx);text-decoration:none}
+  nav.side a.on{color:#fff;background:var(--card2);border-left-color:var(--acc)}
+  .brandbox{padding:6px 12px 18px;border-bottom:1px solid var(--border);margin-bottom:16px}
+  .brandbox .x{font-size:30px;font-weight:800;letter-spacing:-1px}
+  .brandbox .s{font-size:12px;color:var(--mut);margin-top:2px}
+
+  /* main */
+  main{flex:1;min-width:0;padding:54px 60px 140px;max-width:1180px}
+  section{margin-bottom:74px;scroll-margin-top:24px}
+  h1{font-size:40px;font-weight:800;letter-spacing:-1.2px;line-height:1.15;
+    background:linear-gradient(120deg,#fff 10%,#7fb8ff 55%,#36d6c3);-webkit-background-clip:text;
+    background-clip:text;color:transparent;margin-bottom:14px}
+  h2.sec{font-size:27px;font-weight:750;letter-spacing:-.5px;margin-bottom:6px;
+    padding-top:10px;display:flex;align-items:center;gap:12px}
+  h2.sec .n{font-family:var(--mono);font-size:14px;color:var(--acc);background:rgba(78,161,255,.12);
+    border:1px solid rgba(78,161,255,.3);border-radius:7px;padding:3px 9px;font-weight:600}
+  h3{font-size:19px;font-weight:700;margin:34px 0 10px;color:#fff;
+    border-left:3px solid var(--acc);padding-left:12px}
+  h4{font-size:15.5px;font-weight:700;margin:22px 0 8px;color:#cfe2ff}
+  p{margin:10px 0;color:#cdd6e3}
+  .lead{font-size:17px;color:var(--mut);max-width:860px}
+  ul,ol{margin:10px 0 10px 26px}
+  li{margin:5px 0;color:#cdd6e3}
+  strong{color:#fff;font-weight:650}
+  em{color:var(--acc2);font-style:normal}
+  hr{border:0;border-top:1px solid var(--border);margin:34px 0}
+
+  .grid{display:grid;gap:16px;margin:18px 0}
+  .g2{grid-template-columns:1fr 1fr}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  @media(max-width:1100px){.g2,.g3{grid-template-columns:1fr}}
+
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px 22px}
+  .card h4{margin-top:0}
+  .pill{display:inline-block;font-family:var(--mono);font-size:11px;font-weight:600;
+    padding:3px 9px;border-radius:20px;border:1px solid;letter-spacing:.03em}
+  .p-rust{color:#ffb380;border-color:#5a3a22;background:#2a1c10}
+  .p-py{color:#7fd1ff;border-color:#1d4a63;background:#0e2733}
+  .p-ml{color:#c7a3ff;border-color:#3f2d63;background:#1d1430}
+
+  .diagram{background:var(--bg2);border:1px solid var(--border);border-radius:14px;
+    padding:22px;margin:20px 0;overflow-x:auto}
+  .diagram .cap{font-size:12.5px;color:var(--dim);text-align:center;margin-top:14px;
+    font-family:var(--mono);letter-spacing:.04em}
+  .mermaid{display:flex;justify-content:center;min-width:fit-content}
+
+  table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13.5px;display:block;overflow-x:auto}
+  th,td{border:1px solid var(--border);padding:9px 12px;text-align:left;vertical-align:top}
+  th{background:var(--card2);color:#fff;font-weight:650;white-space:nowrap;position:sticky;top:0}
+  td{color:#bcc7d6}
+  tr:nth-child(even) td{background:rgba(255,255,255,.015)}
+  td code,th code{white-space:nowrap}
+
+  .callout{border-radius:11px;padding:14px 18px;margin:18px 0;border:1px solid;font-size:14px}
+  .c-note{background:rgba(78,161,255,.07);border-color:rgba(78,161,255,.3)}
+  .c-key{background:rgba(54,214,195,.07);border-color:rgba(54,214,195,.3)}
+  .c-warn{background:rgba(227,179,65,.07);border-color:rgba(227,179,65,.32)}
+  .callout .t{font-weight:700;font-size:12px;letter-spacing:.1em;text-transform:uppercase;
+    margin-bottom:5px;display:block}
+  .c-note .t{color:var(--acc)} .c-key .t{color:var(--acc2)} .c-warn .t{color:var(--warn)}
+  .callout p{margin:5px 0;color:#cdd6e3}
+
+  .formula{background:#0a0d13;border:1px solid var(--border2);border-left:3px solid var(--acc2);
+    border-radius:9px;padding:16px 20px;margin:16px 0;font-family:var(--mono);font-size:14px;
+    color:#d8e3f0;overflow-x:auto}
+  .formula .v{color:var(--acc)} .formula .o{color:var(--neg)} .formula .c{color:var(--dim)}
+
+  /* attention mask grid */
+  .amask{display:inline-block;font-family:var(--mono);font-size:11px;margin:6px auto}
+  .amask table{display:table;width:auto;margin:0 auto}
+  .amask td,.amask th{border:1px solid #2c3446;padding:0;width:26px;height:26px;text-align:center;
+    font-size:11px;color:#7e8aa0;background:var(--bg2)}
+  .amask th{background:var(--card2);color:#fff;width:auto;padding:4px 8px;white-space:nowrap}
+  .amask .y{background:rgba(63,185,80,.22);color:#7ee787}
+  .amask .x{background:rgba(248,81,73,.13);color:#5d6878}
+  .amask .lbl{background:var(--card2);color:#cfe2ff;font-weight:700;writing-mode:vertical-rl;
+    transform:rotate(180deg);padding:6px 2px}
+
+  .seqbar{display:flex;gap:4px;margin:16px 0;font-family:var(--mono);font-size:12px;flex-wrap:wrap}
+  .seg{border-radius:8px;padding:12px 16px;border:1px solid;flex:1;min-width:120px}
+  .seg .h{font-weight:700;font-size:13px;margin-bottom:3px}
+  .seg .d{font-size:11px;opacity:.8}
+  .s-u{background:rgba(188,140,255,.12);border-color:#4a3a6b;color:#d6bcff}
+  .s-h{background:rgba(78,161,255,.12);border-color:#2d5380;color:#9dd0ff}
+  .s-c{background:rgba(54,214,195,.12);border-color:#1f5e57;color:#7eeadf}
+
+  .steps{counter-reset:st;margin:18px 0}
+  .step{position:relative;padding:14px 18px 14px 56px;background:var(--card);
+    border:1px solid var(--border);border-radius:11px;margin:10px 0}
+  .step::before{counter-increment:st;content:counter(st);position:absolute;left:16px;top:14px;
+    width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,var(--acc),var(--acc2));
+    color:#06121f;font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center}
+  .step b{color:#fff}
+
+  details{background:var(--card);border:1px solid var(--border);border-radius:10px;
+    padding:0;margin:12px 0;overflow:hidden}
+  summary{cursor:pointer;padding:13px 18px;font-weight:650;color:#cfe2ff;font-size:14px;
+    list-style:none;user-select:none}
+  summary::-webkit-details-marker{display:none}
+  summary::before{content:"▸ ";color:var(--acc)}
+  details[open] summary::before{content:"▾ "}
+  details[open] summary{border-bottom:1px solid var(--border)}
+  .det-body{padding:6px 18px 16px}
+
+  .legend{display:flex;gap:18px;flex-wrap:wrap;font-size:12.5px;color:var(--mut);margin:10px 0}
+  .legend span{display:flex;align-items:center;gap:6px}
+  .dot{width:11px;height:11px;border-radius:3px;display:inline-block}
+
+  .topbar{position:fixed;top:0;left:0;height:3px;background:linear-gradient(90deg,var(--acc),var(--acc2));
+    z-index:99;transition:width .1s}
+  .ref{font-family:var(--mono);font-size:11.5px;color:var(--pur)}
+  footer{border-top:1px solid var(--border);padding:30px 0;color:var(--dim);font-size:13px;margin-top:40px}
+  @media(max-width:920px){nav.side{display:none}main{padding:30px 22px 80px}}
+</style>
+</head>
+<body>
+<div class="topbar" id="bar"></div>
+<div class="layout">
+
+<nav class="side">
+  <div class="brandbox">
+    <div class="x">𝕏 · For You</div>
+    <div class="s">Recommendation Algorithm — Architecture</div>
+  </div>
+  <h2>Foundations</h2>
+  <a href="#overview">Overview</a>
+  <a href="#system">System Architecture</a>
+  <a href="#pipeline">Candidate-Pipeline Engine</a>
+  <h2>Components</h2>
+  <a href="#homemixer">Home Mixer</a>
+  <a href="#thunder">Thunder (In-Network)</a>
+  <a href="#phoenix">Phoenix (ML Core)</a>
+  <a href="#grox">Grox (Understanding)</a>
+  <h2>Algorithms</h2>
+  <a href="#retrieval">Retrieval: Two-Tower</a>
+  <a href="#ranking">Ranking: Transformer</a>
+  <a href="#scoring">Scoring & Ranking Math</a>
+  <a href="#ads">Ads Blending</a>
+  <h2>Synthesis</h2>
+  <a href="#e2e">End-to-End Walkthrough</a>
+  <a href="#decisions">Key Design Decisions</a>
+  <a href="#caveats">Caveats & Sources</a>
+</nav>
+
+<main>
+
+<section id="overview">
+  <h1>The X "For You" Algorithm</h1>
+  <p class="lead">A complete architectural deep-dive of the recommendation system powering the
+  "For You" feed on X — how a request becomes a ranked timeline, end-to-end and at the algorithm level.</p>
+
+  <div class="callout c-key">
+    <span class="t">The Core Idea</span>
+    <p>The system retrieves posts from two worlds — <strong>in-network</strong> (accounts you follow,
+    served by <em>Thunder</em>) and <strong>out-of-network</strong> (a global corpus, served by
+    <em>Phoenix retrieval</em>) — then ranks them all together with <em>Phoenix</em>, a Grok-based
+    transformer that predicts how you'll engage with each post. The headline design philosophy:
+    <strong>every hand-engineered relevance feature and most heuristics were deleted</strong>. The
+    transformer reads your raw engagement history and figures out relevance itself.</p>
+  </div>
+
+  <div class="grid g3">
+    <div class="card"><h4>Two Candidate Sources</h4><p style="font-size:13.5px">In-network recency
+    (Thunder, sub-ms in-memory) + ML similarity search over millions of posts (Phoenix two-tower).</p></div>
+    <div class="card"><h4>One Ranking Brain</h4><p style="font-size:13.5px">A Grok-1-derived
+    transformer predicts ~19 engagement probabilities per post with strict candidate isolation.</p></div>
+    <div class="card"><h4>Composable Orchestration</h4><p style="font-size:13.5px">A generic
+    <code>candidate-pipeline</code> engine wires sources → hydrators → filters → scorers → selector.</p></div>
+  </div>
+
+  <h3>The five codebases</h3>
+  <table>
+    <tr><th>Component</th><th>Lang</th><th>Role</th><th>~LOC</th></tr>
+    <tr><td><a href="#pipeline"><code>candidate-pipeline</code></a></td><td><span class="pill p-rust">Rust</span></td>
+      <td>Generic, reusable recommendation-pipeline framework (traits + executor)</td><td>1.0k</td></tr>
+    <tr><td><a href="#homemixer"><code>home-mixer</code></a></td><td><span class="pill p-rust">Rust</span></td>
+      <td>Orchestration layer — assembles & runs the For You feed; gRPC services</td><td>11.7k</td></tr>
+    <tr><td><a href="#thunder"><code>thunder</code></a></td><td><span class="pill p-rust">Rust</span></td>
+      <td>In-memory in-network post store + realtime Kafka ingestion</td><td>1.8k</td></tr>
+    <tr><td><a href="#phoenix"><code>phoenix</code></a></td><td><span class="pill p-ml">JAX/Py</span></td>
+      <td>The ML core — two-tower retrieval + Grok-based ranking transformer</td><td>3.9k</td></tr>
+    <tr><td><a href="#grox"><code>grox</code></a></td><td><span class="pill p-py">Python</span></td>
+      <td>Content-understanding factory — classifiers, embedders, safety, a task DAG engine</td><td>6.5k</td></tr>
+  </table>
+</section>
+
+<section id="system">
+  <h2 class="sec"><span class="n">01</span> System Architecture</h2>
+  <p>A single <code>GetScoredPosts</code> gRPC request fans out across all five components. The
+  diagram below is the canonical request path: gather context → source candidates from two worlds →
+  enrich → filter → score with the transformer → select top-K → safety-filter → blend ads → respond.</p>
+
+  <div class="diagram">
+    <div class="mermaid">
+flowchart TD
+  REQ([For You Feed Request<br/>viewer_id]):::req
+  REQ --> FY
+
+  subgraph FY[" "]
+    direction TB
+    FYL["<b>FOR YOU PIPELINE</b> · home-mixer<br/><i>operates on FeedItems</i>"]:::lbl
+    ADS["AdsSource · WhoToFollow<br/>Prompts · PushToHome"]:::src
+    BL{{"BlenderSelector<br/>organic + ads blend"}}:::sel
+  end
+
+  subgraph SP[" "]
+    direction TB
+    SPL["<b>SCORED-POSTS PIPELINE</b> · home-mixer<br/><i>operates on PostCandidates</i>"]:::lbl
+    QH["Query Hydration · 15 hydrators (parallel)<br/>engagement seq · follows · blocks · topics · IP"]:::stg
+    SRC["Candidate Sources · 6 (parallel)"]:::stg
+    HY["Candidate Hydration · 10 (parallel)<br/>core data · author · media · quote · safety"]:::stg
+    FI["Pre-Scoring Filters · 14 (sequential)<br/>dup · age · self · seen · muted · blocked"]:::stg
+    SC["Scoring · 3 (sequential)<br/>Phoenix → Ranking → VMRanker"]:::stg
+    SE["Top-K Selector"]:::stg
+    PF["Post-Selection Filters · 3<br/>visibility (VF) · conversation dedup"]:::stg
+    QH-->SRC-->HY-->FI-->SC-->SE-->PF
+  end
+
+  THU[("THUNDER<br/>in-network store<br/>in-memory, sub-ms")]:::ext
+  PHR[("PHOENIX RETRIEVAL<br/>two-tower ANN<br/>millions → 1000s")]:::ext
+  PHM[["PHOENIX RANKING<br/>Grok transformer<br/>P(action) per post"]]:::ml
+  GRX[("GROX signals<br/>safety · embeddings<br/>via Strato/Kafka")]:::ext
+
+  FYL-.-> SPL
+  ADS --> BL
+  SRC -->|in-network| THU
+  SRC -->|out-of-network| PHR
+  SC --> PHM
+  GRX -.feeds.-> HY
+  GRX -.feeds.-> PHR
+  PF --> SPL
+  SPL -->|ScoredPostsSource| FYL
+  BL --> RESP([Ranked Feed Response]):::req
+
+  classDef req fill:#10243a,stroke:#4ea1ff,color:#cde6ff,font-weight:bold
+  classDef stg fill:#161d2b,stroke:#36506f,color:#cdd6e3
+  classDef src fill:#1d1430,stroke:#7a5cc0,color:#d6bcff
+  classDef sel fill:#10243a,stroke:#36d6c3,color:#9ff0e6
+  classDef ext fill:#1a1410,stroke:#c08a4a,color:#ffd9a8
+  classDef ml fill:#1d1430,stroke:#bc8cff,color:#e3d4ff
+  classDef lbl fill:none,stroke:none,color:#7f8ca3,font-size:11px
+    </div>
+    <div class="cap">Two stacked candidate pipelines. The For You pipeline calls the Scored-Posts pipeline as one of its sources.</div>
+  </div>
+
+  <div class="callout c-note"><span class="t">Two stacked pipelines</span>
+  <p>The same generic engine is instantiated twice. The <strong>Scored-Posts pipeline</strong> does
+  all the heavy retrieval + ranking and emits <code>PostCandidate</code>s. The <strong>For You
+  pipeline</strong> wraps it: it pulls scored posts via a <code>ScoredPostsSource</code>, then mixes
+  in ads, who-to-follow modules, prompts and pinned posts via a <code>BlenderSelector</code> to
+  produce the final <code>FeedItem</code> timeline.</p></div>
+</section>
+
+<section id="pipeline">
+  <h2 class="sec"><span class="n">02</span> The Candidate-Pipeline Engine</h2>
+  <p>Every recommendation flow in the system is an instance of one generic Rust framework
+  (<code>candidate-pipeline/</code>). It defines a fixed set of <strong>stage traits</strong> and a
+  single <code>execute()</code> method that runs them in a fixed order with a deliberate
+  concurrency model. Business logic plugs in as trait objects; the engine owns execution,
+  parallelism, error isolation and metrics.</p>
+
+  <div class="grid g2">
+    <div class="card"><h4>The stage traits <span class="ref">lib.rs</span></h4>
+    <ul style="font-size:13.5px;margin-left:18px">
+      <li><code>QueryHydrator&lt;Q&gt;</code> — fetch user/request context</li>
+      <li><code>Source&lt;Q,C&gt;</code> — produce candidates</li>
+      <li><code>Hydrator&lt;Q,C&gt;</code> — enrich candidates</li>
+      <li><code>Filter&lt;Q,C&gt;</code> — drop candidates</li>
+      <li><code>Scorer&lt;Q,C&gt;</code> — assign/modify <code>score</code></li>
+      <li><code>Selector&lt;Q,C&gt;</code> — sort & cut to top-K</li>
+      <li><code>SideEffect&lt;Q,C&gt;</code> — async fire-and-forget</li>
+    </ul></div>
+    <div class="card"><h4>Error isolation</h4>
+    <p style="font-size:13.5px">A source/hydrator/query-hydrator that returns <code>Err</code> is
+    simply skipped — the pipeline degrades gracefully rather than failing the request. A
+    scorer/hydrator that returns a wrong-length result is dropped wholesale (length contract).
+    The whole <code>execute()</code> is wrapped in a latency-bucketed stats macro.</p></div>
+  </div>
+
+  <h3>Fixed execution order &amp; concurrency model</h3>
+  <p>This ordering is identical for <em>every</em> pipeline; only the plugged-in components differ.
+  The colour shows the concurrency contract.</p>
+
+  <div class="diagram">
+    <div class="mermaid">
+flowchart LR
+  A[hydrate_query]:::par --> B[dependent<br/>query hydrators]:::par
+  B --> C[fetch_candidates]:::par
+  C --> D[hydrate]:::par
+  D --> E[filter]:::seq
+  E --> F[score]:::seq
+  F --> G[select<br/>top-K]:::sel
+  G --> H[post-selection<br/>hydrate]:::par
+  H --> I[post-selection<br/>filter]:::seq
+  I --> J[truncate to<br/>result_size]:::sel
+  J --> K[finalize]:::seq
+  K --> L[side effects]:::det
+  classDef par fill:#10243a,stroke:#4ea1ff,color:#cde6ff
+  classDef seq fill:#241a10,stroke:#e3b341,color:#ffe9b8
+  classDef sel fill:#10243a,stroke:#36d6c3,color:#9ff0e6
+  classDef det fill:#1d1430,stroke:#bc8cff,color:#e3d4ff
+    </div>
+    <div class="cap">candidate_pipeline.rs :: execute()</div>
+  </div>
+
+  <div class="legend">
+    <span><i class="dot" style="background:#4ea1ff"></i> Parallel — all components <code>join_all</code>'d, then merged sequentially</span>
+    <span><i class="dot" style="background:#e3b341"></i> Sequential — each sees the previous one's output</span>
+    <span><i class="dot" style="background:#36d6c3"></i> Sort & cut</span>
+    <span><i class="dot" style="background:#bc8cff"></i> Detached — <code>tokio::spawn</code>, never blocks the response</span>
+  </div>
+
+  <table>
+    <tr><th>Stage</th><th>Concurrency</th><th>Behaviour</th></tr>
+    <tr><td>Query hydrators</td><td><b style="color:#4ea1ff">Parallel</b></td><td>All enabled hydrators hit their backends concurrently; results merged into the query one by one.</td></tr>
+    <tr><td>Sources</td><td><b style="color:#4ea1ff">Parallel</b></td><td>All sources fetch concurrently; candidate vectors flattened in source order.</td></tr>
+    <tr><td>Hydrators</td><td><b style="color:#4ea1ff">Parallel</b></td><td>Each receives the same candidate slice, must return same-length/order; applied in turn.</td></tr>
+    <tr><td>Filters</td><td><b style="color:#e3b341">Sequential</b></td><td>In Vec order; each filter only sees survivors of the previous.</td></tr>
+    <tr><td>Scorers</td><td><b style="color:#e3b341">Sequential</b></td><td>In Vec order; each scorer mutates <code>score</code> before the next runs — order is load-bearing.</td></tr>
+    <tr><td>Side effects</td><td><b style="color:#bc8cff">Detached</b></td><td>Spawned and joined off the response path — caching/logging never adds latency.</td></tr>
+  </table>
+  <p>The default <code>Selector</code> sorts candidates by <code>score()</code> descending, then
+  <code>split_off(K)</code> → the head is <em>selected</em>, the tail is <em>non-selected</em>.</p>
+</section>
+
+<section id="homemixer">
+  <h2 class="sec"><span class="n">03</span> Home Mixer <span class="pill p-rust" style="font-size:12px">Rust</span></h2>
+  <p>The orchestration layer. It exposes gRPC services, builds a per-request
+  <code>ScoredPostsQuery</code>, and runs the two stacked candidate pipelines. The server boots an
+  <code>XServiceBuilder</code> with mTLS, gzip+zstd, dark-traffic layers, and wires one
+  <code>PhoenixCandidatePipeline</code> inside one <code>ForYouCandidatePipeline</code>.</p>
+
+  <h3>Request entry &amp; the QueryBuilder</h3>
+  <div class="steps">
+    <div class="step"><b>Reject anonymous</b> — <code>viewer_id == 0</code> is refused immediately.</div>
+    <div class="step"><b>Fetch viewer data</b> — Gizmoduck call with a hard <b>200 ms</b> timeout; on
+    timeout/error falls back to default viewer data so the request still proceeds.</div>
+    <div class="step"><b>Resolve in-network-only</b> — true if the request asks for it OR the viewer
+    has opted out of recommendations.</div>
+    <div class="step"><b>Evaluate feature switches</b> — a <code>RecipientBuilder</code> keyed on
+    user/country/language/app/datacenter/account-age/roles materialises all runtime
+    <code>params</code> (weights, thresholds, cluster IDs).</div>
+    <div class="step"><b>Build query</b> — generate <code>prediction_id</code>/<code>request_id</code>;
+    mark ~50% of traffic as shadow for experiment replay.</div>
+  </div>
+
+  <h3>The Scored-Posts pipeline — exact assembly</h3>
+  <p>The full ordered wiring. (Numeric thresholds/weights live in a non-open-sourced
+  <code>params</code> module — see <a href="#caveats">caveats</a>.)</p>
+
+  <h4>① Query hydrators — 15, parallel</h4>
+  <table>
+    <tr><th>#</th><th>Hydrator</th><th>Fetches into the query</th></tr>
+    <tr><td>1</td><td><code>ScoringSequence</code></td><td>User-action <b>scoring</b> sequence (engagement history fed to the ranker)</td></tr>
+    <tr><td>2</td><td><code>RetrievalSequence</code></td><td>User-action <b>retrieval</b> sequence (history fed to the two-tower)</td></tr>
+    <tr><td>3-6</td><td><code>Blocked/Muted/Followed/Subscribed UserIds</code></td><td>Social-graph sets: blocked, muted, followed (the in-network set), paid-subscribed authors</td></tr>
+    <tr><td>7</td><td><code>CachedPosts</code></td><td>Redis-cached scored posts; sets <code>has_cached_posts</code> if ≥ ~500 → short-circuits live retrieval</td></tr>
+    <tr><td>8</td><td><code>MutualFollow</code></td><td>Viewer MinHash signature for Jaccard similarity</td></tr>
+    <tr><td>9-12</td><td><code>Demographics / GrokTopics / StarterPacks / InferredTopics</code></td><td>Context features: demographics, followed & inferred Grok topics, followed starter packs</td></tr>
+    <tr><td>13</td><td><code>ImpressionBloomFilter</code></td><td>Server-side impression bloom-filter entries (already-seen suppression)</td></tr>
+    <tr><td>14-15</td><td><code>Ip / InferredGender</code></td><td>Geo-IP location; inferred gender (gRPC predict fallback for brand-new users)</td></tr>
+  </table>
+
+  <h4>② Candidate sources — 6, parallel</h4>
+  <table>
+    <tr><th>Source</th><th>Retrieves</th><th>Gating</th></tr>
+    <tr><td><code>ThunderSource</code></td><td>In-network posts from accounts you follow (excludes seen ids); builds reply→conversation ancestors</td><td>not cached</td></tr>
+    <tr><td><code>TweetMixerSource</code></td><td>OON recommended tweets from TweetMixer; drops over-age posts</td><td>not in-network-only, not cached</td></tr>
+    <tr><td><code>PhoenixSource</code></td><td>Phoenix two-tower learned retrieval (the main OON source)</td><td>not in-network-only, not cached</td></tr>
+    <tr><td><code>PhoenixTopicsSource</code></td><td>Phoenix retrieval scoped to topic entity IDs (topic / new-user requests)</td><td>topic request</td></tr>
+    <tr><td><code>PhoenixMOESource</code></td><td>Phoenix mixture-of-experts retrieval cluster</td><td>FS-enabled</td></tr>
+    <tr><td><code>CachedPostsSource</code></td><td>Returns pre-scored cached posts verbatim, bypassing all retrieval</td><td>cached only</td></tr>
+  </table>
+  <div class="callout c-note"><span class="t">The cache short-circuit</span><p>When a user has
+  ≥ ~500 cached scored posts, <code>has_cached_posts</code> disables <em>all</em> live
+  sources/hydrators/the Phoenix scorer — only <code>CachedPostsSource</code> runs, feeding already-scored
+  candidates straight to the selector. This is the cheap path for rapid re-requests / pagination.</p></div>
+
+  <h4>③ Candidate hydrators — 10, parallel</h4>
+  <p>Enrich each post: <code>InNetwork</code> (is author followed/self), <code>CoreData</code>
+  (author id, text, retweet/reply linkage — Moka-cached), <code>Quote</code> (quoted tweet + blocks),
+  <code>VideoDuration</code>, <code>HasMedia</code>, <code>Subscription</code>,
+  <code>Gizmoduck</code> (follower count, screen names), <code>BlockedBy</code>,
+  <code>FilteredTopics</code>, <code>LanguageCode</code>. A blanket <code>CachedHydrator</code>
+  does per-candidate cache-get then a single batched backend call for misses.</p>
+
+  <h4>④ Pre-scoring filters — 14, sequential</h4>
+  <table>
+    <tr><th>#</th><th>Filter</th><th>Drop rule</th></tr>
+    <tr><td>1</td><td><code>DropDuplicates</code></td><td>tweet_id already seen this request</td></tr>
+    <tr><td>2</td><td><code>CoreDataHydration</code></td><td><code>author_id == 0</code> (core-data hydration failed)</td></tr>
+    <tr><td>3</td><td><code>Age</code></td><td>age &gt; <code>MAX_POST_AGE</code> (missing age ⇒ dropped)</td></tr>
+    <tr><td>4</td><td><code>SelfTweet</code></td><td><code>author_id == viewer_id</code></td></tr>
+    <tr><td>5</td><td><code>RetweetDedup</code></td><td>collapse RT + original to first seen</td></tr>
+    <tr><td>6</td><td><code>IneligibleSubscription</code></td><td>subscription-only post whose author you don't subscribe to</td></tr>
+    <tr><td>7-9</td><td><code>PreviouslySeen / SeenBackup / Served</code></td><td>post id ∈ seen-ids / impression bloom / impressed / served set</td></tr>
+    <tr><td>10</td><td><code>MutedKeyword</code></td><td>tokenized text matches a viewer muted keyword</td></tr>
+    <tr><td>11</td><td><code>AuthorSocialgraph</code></td><td>author muted/blocked, author-blocks-viewer, or quoted/retweeted-author block edges</td></tr>
+    <tr><td>12-14</td><td><code>Video / TopicIds / NewUserTopicIds</code></td><td>video-exclusion; topic-membership; new-user topic scoping</td></tr>
+  </table>
+
+  <h4>⑤ Scorers — 3, sequential → ⑥ Top-K Selector</h4>
+  <p><code>PhoenixScorer</code> → <code>RankingScorer</code> → <code>VMRanker</code>. This chain is
+  the heart of the system — fully detailed in <a href="#scoring">§ Scoring &amp; Ranking Math</a>.
+  The <code>TopKScoreSelector</code> then sorts by final <code>score</code> and keeps the top
+  <code>TOP_K_CANDIDATES_TO_SELECT</code>.</p>
+
+  <h4>⑦ Post-selection — visibility &amp; dedup</h4>
+  <p>Parallel hydrators run Visibility Filtering (separate VF calls for in-network vs OON),
+  brand-safety verdicts, tweet-type metrics, reply facepiles, mutual-follow Jaccard. Then 3
+  sequential filters: <code>VFFilter</code> (drop deleted/spam/violence/gore),
+  <code>AncillaryVFFilter</code> (drop if an ancestor/quoted target was VF-dropped),
+  <code>DedupConversationFilter</code> (one post per conversation thread, highest score wins).
+  Finally the engine truncates to <code>RESULT_SIZE</code>.</p>
+
+  <h4>⑧ Side effects — 6, detached</h4>
+  <p>Shadow-traffic Phoenix experiment replay, reranking-Kafka sampling, Redis post-candidate
+  caching (zstd, ~180 s TTL), score-distribution stats, mutual-follow stats, and a two-cluster
+  Phoenix request cache. None of these touch the response.</p>
+</section>
+
+<section id="thunder">
+  <h2 class="sec"><span class="n">04</span> Thunder — In-Network Store <span class="pill p-rust" style="font-size:12px">Rust</span></h2>
+  <p>An in-memory post store + realtime Kafka ingestion pipeline. Its single job: given a viewer's
+  follow list, return recent posts from those accounts in <strong>sub-millisecond</strong> time,
+  with <em>no external database on the read path</em>.</p>
+
+  <h3>In-memory data structures</h3>
+  <p>Per-user timelines store only a 16-byte <code>TinyPost {post_id, created_at}</code>; full
+  bodies live in one side map. Everything is a <code>DashMap</code> (sharded concurrent hashmap →
+  per-shard locking, no global lock).</p>
+
+  <div class="diagram">
+    <div class="mermaid">
+flowchart TB
+  subgraph PS["PostStore (all fields Arc&lt;DashMap&gt;, struct is Clone)"]
+    direction TB
+    P["<b>posts</b><br/>post_id → LightPost<br/><i>full body, source of truth</i>"]:::main
+    O["<b>original_posts_by_user</b><br/>user_id → VecDeque&lt;TinyPost&gt;<br/><i>!reply &amp; !retweet</i>"]:::tl
+    S["<b>secondary_posts_by_user</b><br/>user_id → VecDeque&lt;TinyPost&gt;<br/><i>replies + retweets</i>"]:::tl
+    V["<b>video_posts_by_user</b><br/>user_id → VecDeque&lt;TinyPost&gt;<br/><i>video-eligible posts</i>"]:::tl
+    D["<b>deleted_posts</b><br/>post_id → bool<br/><i>tombstones (lazy delete)</i>"]:::del
+  end
+  classDef main fill:#10243a,stroke:#4ea1ff,color:#cde6ff
+  classDef tl fill:#161d2b,stroke:#36506f,color:#cdd6e3
+  classDef del fill:#241015,stroke:#f85149,color:#ffc9c5
+    </div>
+    <div class="cap">Each deque is kept time-ordered (front = oldest). A post lands in original-or-secondary, and additionally in video if eligible.</div>
+  </div>
+
+  <h3>Realtime ingestion — two Kafka pipelines</h3>
+  <div class="diagram">
+    <div class="mermaid">
+flowchart LR
+  K1[(Kafka:<br/>raw Thrift<br/>TweetEvent)]:::k --> F["v1 listener<br/><b>feeder mode</b><br/>normalize → compact<br/>InNetworkEvent"]:::proc
+  F --> K2[(Kafka:<br/>InNetworkEvent<br/>proto)]:::k
+  K2 --> V2["v2 listener<br/><b>serving mode</b><br/>deserialize batch"]:::proc
+  V2 -->|create| INS["insert_posts → retention<br/>filter + sort + dedup"]:::w
+  V2 -->|delete| MK["mark_as_deleted<br/>tombstone"]:::w
+  INS --> PS[(PostStore)]:::store
+  MK --> PS
+  classDef k fill:#1a1410,stroke:#c08a4a,color:#ffd9a8
+  classDef proc fill:#161d2b,stroke:#36506f,color:#cdd6e3
+  classDef w fill:#241a10,stroke:#e3b341,color:#ffe9b8
+  classDef store fill:#10243a,stroke:#4ea1ff,color:#cde6ff
+    </div>
+    <div class="cap">Feeder normalizes & fans out; serving consumers (random group id per process) replay into the in-memory store.</div>
+  </div>
+  <p>On startup, each consumer thread signals once it has caught up (partition lag below a
+  threshold); the process then runs <code>finalize_init()</code> — sort all deques, reconcile
+  out-of-order deletes — before becoming ready.</p>
+
+  <h3>Retention &amp; trimming algorithm</h3>
+  <p>Default retention <strong>2 days</strong>. Three eviction mechanisms:</p>
+  <ol>
+    <li><b>Insert-time filter</b> — posts in the future or older than retention never enter the store.</li>
+    <li><b>Delete-event filter</b> — delete events for already-trimmable posts are skipped.</li>
+    <li><b>Periodic auto-trim</b> — a background task every <strong>2 minutes</strong> (on
+    <code>spawn_blocking</code>) walks each user deque from the <em>front</em> (oldest) popping
+    expired posts and <code>break</code>ing at the first fresh one — O(evicted) per user because
+    deques are time-sorted. It also reclaims over-allocated deque capacity and removes empty users.</li>
+  </ol>
+  <div class="callout c-note"><span class="t">Lazy delete</span><p>A delete does <em>not</em> scan
+  and remove from timelines (expensive). It removes from <code>posts</code>, sets a tombstone, and
+  pushes the tombstone under a synthetic <code>DELETE_EVENT_KEY</code> "user" so it's trimmable on
+  the same clock. The stale <code>TinyPost</code> in timelines is filtered out lazily at read time
+  and physically reaped by the trimmer.</p></div>
+
+  <h3>The serving / query path</h3>
+  <div class="steps">
+    <div class="step"><b>Admission control</b> — non-blocking semaphore <code>try_acquire</code>; over capacity → immediate <code>RESOURCE_EXHAUSTED</code> (load-shed, never queue).</div>
+    <div class="step"><b>Gather on <code>spawn_blocking</code></b> — for each followed user (capped), iterate their deque <em>newest-first</em>, copy <code>LightPost</code> out of the map immediately (release shard lock fast, avoid nested-lock deadlock), apply per-author scan cap.</div>
+    <div class="step"><b>Filter</b> — drop tombstoned ids, drop self-retweets, and for replies apply a reply-context filter (keep only replies into root posts or followed conversations).</div>
+    <div class="step"><b>Per-iteration wall-clock timeout</b> — bounds tail latency: return whatever was gathered so far rather than blow the deadline.</div>
+    <div class="step"><b>Score &amp; truncate</b> — sort all gathered posts by <code>Reverse(created_at)</code> and take <code>max_results</code>. Ordering is <b>pure recency</b> — Thunder does no ML.</div>
+  </div>
+  <p>Sub-ms is achieved by: DashMap shard-level locking, copying out of locks immediately, bounded
+  per-author/per-request work, the read path on <code>spawn_blocking</code>, and the write path
+  throttled (a 3-permit semaphore post-init) to leave CPU for reads.</p>
+</section>
+
+<section id="phoenix">
+  <h2 class="sec"><span class="n">05</span> Phoenix — The ML Core <span class="pill p-ml" style="font-size:12px">JAX / Haiku</span></h2>
+  <p>Phoenix is a two-stage recommender. <strong>Retrieval</strong> (a two-tower model) narrows
+  millions of posts to ~hundreds via approximate nearest-neighbour search. <strong>Ranking</strong>
+  (a Grok-1-derived transformer with candidate isolation) scores those few by predicted engagement.
+  Both share the same transformer code and the same hash-embedding input pipeline.</p>
+
+  <div class="diagram">
+    <div class="mermaid">
+flowchart LR
+  U([User request<br/>+ history]):::req
+  U --> R
+  subgraph R["STAGE 1 · RETRIEVAL (Two-Tower)"]
+    UT["User Tower<br/>transformer → mean-pool<br/>→ L2-norm → u ∈ ℝᴰ"]:::t
+    CT["Candidate Tower (offline)<br/>post⊕author → MLP<br/>→ L2-norm → corpus ∈ ℝᴺˣᴰ"]:::t
+    UT --> DOT{{"u · Cᵀ<br/>top-K dot product<br/>(cosine, both unit-norm)"}}:::op
+    CT --> DOT
+  end
+  DOT -->|"~200 candidates"| RK
+  subgraph RK["STAGE 2 · RANKING (Transformer)"]
+    SEQ["[ User · History · Candidates ]<br/>candidate-isolation mask<br/>Grok blocks ×N"]:::t
+    HEAD["action head<br/>logits → sigmoid"]:::op
+    SEQ --> HEAD
+  end
+  HEAD --> OUT([P(action) per post<br/>B × C × ~19]):::req
+  classDef req fill:#10243a,stroke:#4ea1ff,color:#cde6ff,font-weight:bold
+  classDef t fill:#1d1430,stroke:#bc8cff,color:#e3d4ff
+  classDef op fill:#10243a,stroke:#36d6c3,color:#9ff0e6
+    </div>
+    <div class="cap">Millions → ~200 (cheap dot product) → ranked (expressive transformer). Mini released config: D=128, 4 layers, 4 heads.</div>
+  </div>
+
+  <h3>The shared trick: hash-based embeddings</h3>
+  <p>There is no per-ID embedding row. Each 64-bit entity ID (user, post/item, author) is passed
+  through <strong>2 independent linear-congruential hash functions</strong> into a shared embedding
+  table — the "hashing trick" / Bloom embeddings. Bucket 0 is reserved for padding/invalid.</p>
+  <div class="formula">
+raw  = (<span class="v">id</span> * scale[j] + bias[j]) mod modulus<br/>
+bucket[j] = 0 if <span class="v">id</span>==0 else (raw mod (num_buckets-1)) + 1<br/>
+<span class="c"># j ∈ {0,1}; user/item/author each have their own scale,bias and a 1,000,000-row vocab region</span>
+  </div>
+  <p>All three entity types share one monolithic table; per-entity hashes are offset into disjoint
+  index ranges. Multi-hash vectors are combined per token by a learned projection in three
+  "reduce" blocks (user / history / candidate), which also fold in action, product-surface,
+  dwell-time and post-age embeddings.</p>
+
+  <h3>Grok block internals (ported from Grok-1, adapted for recsys)</h3>
+  <div class="diagram">
+    <div class="mermaid">
+flowchart TB
+  X[input embeddings<br/>B × T × D]:::io
+  X --> N1[RMSNorm fp32]:::n
+  N1 --> AT["Multi-Head Attention<br/>RoPE on Q,K · GQA-capable<br/>logits×0.125 · 30·tanh(·/30) soft-cap<br/>softmax fp32 · candidate-isolation mask"]:::at
+  AT --> N2[RMSNorm]:::n
+  N2 -->|+ residual| R1((+)):::r
+  X --> R1
+  R1 --> N3[RMSNorm]:::n
+  N3 --> FF["GeGLU Dense<br/>Linear( gelu(W·x) ⊙ V·x )<br/>ffn ≈ ⅔·widening, ×8-aligned"]:::ff
+  FF --> N4[RMSNorm]:::n
+  N4 -->|+ residual| R2((+)):::r
+  R1 --> R2
+  R2 --> O[to next layer ×N<br/>then final RMSNorm]:::io
+  classDef io fill:#10243a,stroke:#4ea1ff,color:#cde6ff
+  classDef n fill:#161d2b,stroke:#36506f,color:#9fb4cf
+  classDef at fill:#1d1430,stroke:#bc8cff,color:#e3d4ff
+  classDef ff fill:#241a10,stroke:#e3b341,color:#ffe9b8
+  classDef r fill:#10243a,stroke:#36d6c3,color:#9ff0e6
+    </div>
+    <div class="cap">Pre-norm decoder block with a distinctive double-RMSNorm: norm before AND after each sublayer, then residual add.</div>
+  </div>
+  <table>
+    <tr><th>Element</th><th>Detail</th></tr>
+    <tr><td>RMSNorm</td><td><code>x · rsqrt(mean(x²) + 1e-5)</code> in fp32, learned scale</td></tr>
+    <tr><td>RoPE</td><td>Rotary position embeddings on both Q and K, base 1e4; optional "right-anchored" variant anchors the newest history token to a fixed position</td></tr>
+    <tr><td>Attention</td><td>Separate Q/K/V (no bias); grouped-query capable; logits ×0.125; <b>tanh soft-cap at 30</b> (Grok-1 stabilisation); softmax always fp32</td></tr>
+    <tr><td>FFN</td><td><b>GeGLU</b> gated MLP — <code>Linear(gelu(W₁x) ⊙ Vx)</code>; width ≈ ⅔·widening_factor·D rounded to ×8</td></tr>
+    <tr><td>Adapted</td><td>Grok-1's <b>Mixture-of-Experts replaced by a single dense block</b>; no int8 quantization; custom input embeddings; custom attention mask; action head instead of LM unembedding</td></tr>
+  </table>
+</section>
+
+<section id="retrieval">
+  <h2 class="sec"><span class="n">06</span> Retrieval — The Two-Tower Algorithm</h2>
+  <p>Two-tower models split the score into <code>sim(user_vec, item_vec)</code> so item vectors can
+  be precomputed offline and searched with fast ANN — the only way to consider millions of posts
+  per request.</p>
+
+  <div class="grid g2">
+    <div class="card"><h4>User Tower (online)</h4>
+    <ol style="font-size:13.5px;margin-left:18px">
+      <li>Build user + history embeddings (post⊕author⊕action⊕product-surface) via reduce blocks</li>
+      <li>Concat <code>[user, history]</code> → run the Grok transformer with a <b>causal</b> mask (no candidates here)</li>
+      <li><b>Mean-pool</b> over valid (non-padded) positions</li>
+      <li><b>L2-normalise</b> → <code>u ∈ ℝᴰ</code></li>
+    </ol></div>
+    <div class="card"><h4>Candidate Tower (offline)</h4>
+    <ol style="font-size:13.5px;margin-left:18px">
+      <li>Concat candidate post ⊕ author hash embeddings</li>
+      <li>2-layer <b>SiLU MLP</b> projection (or mean-pool over hashes)</li>
+      <li><b>L2-normalise</b> → every corpus post becomes a unit vector</li>
+      <li>Whole corpus precomputed: <code>~537K</code> posts in the released sports demo</li>
+    </ol></div>
+  </div>
+
+  <h4>Similarity search</h4>
+  <p>Because both towers are L2-normalised, dot product = cosine similarity:</p>
+  <div class="formula">
+scores = <span class="v">u</span> · corpusᵀ &nbsp;&nbsp;<span class="c"># [N] cosine similarities</span><br/>
+top_k_idx = argpartition(scores)[-K:] → sort desc &nbsp;&nbsp;<span class="c"># K = --top_k_retrieval, default 200</span>
+  </div>
+  <p>The released pipeline does exact brute-force dot product over the corpus; production uses ANN.
+  The retrieved post IDs (with author IDs and topics) become the candidate set handed to ranking.</p>
+</section>
+
+<section id="ranking">
+  <h2 class="sec"><span class="n">07</span> Ranking — Transformer with Candidate Isolation</h2>
+  <p>The ranker builds <strong>one sequence</strong> per request, laid out in three segments, and runs
+  the Grok transformer once over it.</p>
+
+  <div class="seqbar">
+    <div class="seg s-u"><div class="h">User · 1 pos</div><div class="d">user hash embedding</div></div>
+    <div class="seg s-h" style="flex:3"><div class="h">History · S positions (≈127)</div><div class="d">per engaged post: post ⊕ author ⊕ action ⊕ product-surface ⊕ dwell ⊕ post-age</div></div>
+    <div class="seg s-c" style="flex:2"><div class="h">Candidates · C positions (≈64)</div><div class="d">per candidate: post ⊕ author ⊕ product-surface ⊕ post-age</div></div>
+  </div>
+
+  <h3>The candidate-isolation attention mask</h3>
+  <p>This is the system's most important architectural decision. Start from a causal (lower-triangular)
+  mask, then <strong>zero the entire candidate↔candidate block</strong>, then <strong>restore only the
+  diagonal</strong> so each candidate can still self-attend.</p>
+
+  <div class="diagram" style="text-align:center">
+    <div class="amask">
+    <table>
+      <tr><th></th><th>User</th><th>History (S)</th><th>Candidates (C)</th></tr>
+      <tr><td class="lbl">User</td>
+        <td class="y">✓</td><td class="y" colspan="3">✓ &nbsp; ✓ &nbsp; ✓</td><td class="x" colspan="3">✗ &nbsp; ✗ &nbsp; ✗</td></tr>
+      <tr><td class="lbl">History</td>
+        <td class="y">✓</td><td class="y" colspan="3">✓ &nbsp; ✓ &nbsp; ✓</td><td class="x" colspan="3">✗ &nbsp; ✗ &nbsp; ✗</td></tr>
+      <tr><td class="lbl">Cand&nbsp;A</td>
+        <td class="y">✓</td><td class="y" colspan="3">✓ &nbsp; ✓ &nbsp; ✓</td><td class="y">✓</td><td class="x">✗</td><td class="x">✗</td></tr>
+      <tr><td class="lbl">Cand&nbsp;B</td>
+        <td class="y">✓</td><td class="y" colspan="3">✓ &nbsp; ✓ &nbsp; ✓</td><td class="x">✗</td><td class="y">✓</td><td class="x">✗</td></tr>
+      <tr><td class="lbl">Cand&nbsp;C</td>
+        <td class="y">✓</td><td class="y" colspan="3">✓ &nbsp; ✓ &nbsp; ✓</td><td class="x">✗</td><td class="x">✗</td><td class="y">✓</td></tr>
+    </table>
+    </div>
+    <div class="cap">Query (rows) → Key (cols). Candidates attend to User + all History + only themselves — never to each other.</div>
+  </div>
+
+  <div class="callout c-key"><span class="t">Why isolation matters</span><p>A candidate's score
+  depends <em>only</em> on the user context, never on which other posts happen to share the batch.
+  This makes scores <strong>deterministic, batch-invariant and cacheable</strong>, and lets you score
+  any subset of candidates without re-running the rest.</p></div>
+
+  <h4>Output head — multi-action prediction</h4>
+  <p>After the final RMSNorm, only the candidate positions are sliced out and projected by an
+  unembedding matrix into <strong>~19 action logits</strong>; <code>sigmoid</code> gives independent
+  per-action probabilities (multi-label, not softmax). A separate continuous head predicts 8
+  regression targets (dwell time, watch time, scroll depth…).</p>
+  <div class="formula">
+cand = RMSNorm(transformer_out)[:, candidates, :]&nbsp;&nbsp;<span class="c"># [B, C, D]</span><br/>
+logits = cand @ unembeddings&nbsp;&nbsp;<span class="c"># [B, C, num_actions]</span><br/>
+P(action) = sigmoid(logits)
+  </div>
+  <table>
+    <tr><th>Positive actions (push up)</th><th>Negative actions (push down)</th></tr>
+    <tr><td>favorite, reply, repost, quote, click, profile_click, video-quality-view, photo_expand, share (+DM/copy-link), dwell, follow_author</td>
+        <td>not_interested, block_author, mute_author, report</td></tr>
+  </table>
+
+  <details>
+    <summary>Ranking forward pass — algorithm-level pseudocode</summary>
+    <div class="det-body">
+<pre><code>function PhoenixRank(user, history, candidates):
+    # --- build input segments via reduce blocks ---
+    u  = block_user_reduce(user_hashes)                         # [B,1,D]
+    h  = block_history_reduce(post,author,action,psurf,dwell,age)# [B,S,D]
+    c  = block_candidate_reduce(post,author,psurf,age)           # [B,C,D]
+    X  = concat([u, h, c], axis=1)                               # [B, 1+S+C, D]
+    M  = concat([u_mask, h_mask, c_mask], axis=1)
+    cso = 1 + S                                                  # candidate start offset
+
+    # --- candidate-isolation mask ---
+    A = tril(ones(T,T))            # causal
+    A[cso:, cso:] = 0              # no candidate ↔ candidate
+    A[diag(cso:T)] = 1             # restore self-attention
+    mask = M[:,None,None,:] * A
+
+    # --- Grok transformer ×N ---
+    for layer in 1..N:
+        a = MHA(RMSNorm(h), mask)  # RoPE(Q,K); logits*0.125; 30*tanh(./30); softmax fp32
+        X = X + RMSNorm(a)
+        d = GeGLU(RMSNorm(X))      # Linear( gelu(W1·x) ⊙ V·x )
+        X = X + RMSNorm(d)
+
+    # --- action heads on candidate positions only ---
+    cand   = RMSNorm(X)[:, cso:, :]            # [B,C,D]
+    logits = cand @ unembeddings               # [B,C,num_actions]
+    return sigmoid(logits), sigmoid(cand @ continuous_unembeddings)</code></pre>
+    </div>
+  </details>
+
+  <h4>End-to-end <code>run_pipeline.py</code></h4>
+  <p>Load retrieval+ranker checkpoints &amp; the 1M-row hash tables → load corpus &amp; example user
+  history → retrieval forward → top-200 by dot product → ranking forward in chunks of C → sigmoid →
+  a small weighted blend
+  <code>1.0·fav + 0.5·reply + 0.3·rt + 0.2·dwell</code> → sort → print ranked list with per-action
+  probabilities. (That demo blend is illustrative; production weighting lives in the home-mixer
+  <a href="#scoring">RankingScorer</a>.)</p>
+</section>
+
+<section id="scoring">
+  <h2 class="sec"><span class="n">08</span> Scoring &amp; Ranking Math</h2>
+  <p>Phoenix outputs raw per-action probabilities. Turning those into a single sortable
+  <code>score</code> is the job of the sequential scorer chain in home-mixer.</p>
+
+  <div class="diagram">
+    <div class="mermaid">
+flowchart LR
+  PS["<b>PhoenixScorer</b><br/>one batched predict() call<br/>→ per-action probs<br/>(writes phoenix_scores only)"]:::a
+  PS --> RS["<b>RankingScorer</b><br/>weighted sum → offset/normalize<br/>→ author diversity → OON<br/>(writes weighted_score + score)"]:::b
+  RS --> VM["<b>VMRanker</b> (optional)<br/>external value-model re-rank<br/>+ DPP diversity"]:::c
+  VM --> SEL["TopKScoreSelector<br/>sort by score, keep top-K"]:::d
+  classDef a fill:#1d1430,stroke:#bc8cff,color:#e3d4ff
+  classDef b fill:#241a10,stroke:#e3b341,color:#ffe9b8
+  classDef c fill:#10243a,stroke:#4ea1ff,color:#cde6ff
+  classDef d fill:#10243a,stroke:#36d6c3,color:#9ff0e6
+    </div>
+    <div class="cap">scorers/mod.rs declares exactly these three. (weighted_/author_diversity_/oon_ scorer files are superseded dead code, folded into RankingScorer.)</div>
+  </div>
+
+  <h3>PhoenixScorer — the model call</h3>
+  <p>Resolves a Phoenix inference cluster (new-user clusters, A/B deciders), builds one prediction
+  request packing the <em>entire candidate batch + the user scoring sequence</em>, and makes a
+  <strong>single</strong> <code>predict()</code> call (with an egress-sidecar → direct fallback).
+  Per-candidate scores are keyed by <em>original</em> tweet id (retweet collapses to source).
+  Candidate isolation is enforced inside the model, not here. On total failure every candidate
+  gets default scores and the scorer is skipped.</p>
+
+  <h3>RankingScorer — the four-step combination</h3>
+  <h4>1 · Weighted sum</h4>
+  <p>Each action probability is multiplied by a feature-switch weight and summed. Positive actions
+  have positive weights; negative-feedback actions have negative weights.</p>
+  <div class="formula">
+combined = Σ <span class="v">P(actionᵢ)</span> · weightᵢ<br/>
+positive_sum = Σ positive weights &nbsp;·&nbsp; negative_sum = −Σ(not_interested,block,mute,report,not_dwelled)<br/>
+total_sum = positive_sum + negative_sum
+  </div>
+  <p><code>vqv</code>/<code>quoted_vqv</code> weights are gated on the candidate's video duration
+  qualifying. Continuous predictions (dwell_time, click_dwell_time) get their own weights.</p>
+
+  <h4>2 · Negative-offset normalization</h4>
+  <p>Maps the negative range below all positive scores, then shifts positives up by a constant
+  offset — so any post the user would dislike sorts beneath every post they wouldn't.</p>
+  <div class="formula">
+if total_sum == 0:      score = max(combined, 0)<br/>
+elif combined &lt; 0:     score = (combined + negative_sum) / total_sum · <span class="v">NEGATIVE_SCORES_OFFSET</span><br/>
+else:                   score = combined + <span class="v">NEGATIVE_SCORES_OFFSET</span>
+  </div>
+  <p>Then passed through an external <code>normalize_score()</code>.</p>
+
+  <h4>3 · Author-diversity attenuation</h4>
+  <p>Candidates are ranked by weighted score; for each author a 0-based occurrence counter
+  <code>position</code> is tracked in that order. Each repeated post by the same author is
+  geometrically attenuated toward a floor — the author's best post is untouched
+  (<code>×1</code>), subsequent ones decay.</p>
+  <div class="formula">
+multiplier(pos) = (1 − <span class="v">floor</span>) · <span class="v">decay</span><span style="font-size:11px">pos</span> + <span class="v">floor</span><br/>
+adjusted = weighted_score · multiplier(author_position)
+  </div>
+
+  <h4>4 · Out-of-network adjustment</h4>
+  <p>Diversity-adjusted scores for OON posts are multiplied by an effective OON weight factor
+  (a topic-request / new-user / default variant). In-network and self posts are unchanged.</p>
+  <div class="formula">
+effective_oon = TopicOonWeight (topic req) | NewUserOonWeight (new user) | OonWeight (default)<br/>
+final = (in_network == false) ? adjusted · effective_oon : adjusted
+  </div>
+
+  <h3>VMRanker — optional value-model re-rank</h3>
+  <p>If enabled, sends all candidates' raw Phoenix scores + the RankingScorer output + light
+  features to an external value-model service, with optional <strong>DPP</strong> (Determinantal
+  Point Process) diversity parameters, and replaces <code>score</code> with the returned value
+  (falling back to the prior score on miss/failure).</p>
+
+  <div class="callout c-key"><span class="t">Net pipeline</span>
+  <p>Phoenix per-action probabilities → linear weighted sum → negative-offset normalization →
+  score-normalizer → author-diversity geometric attenuation → OON multiplicative discount →
+  (optional) value-model + DPP re-rank → the <code>score</code> the selector sorts on.</p></div>
+</section>
+
+<section id="ads">
+  <h2 class="sec"><span class="n">09</span> Ads Blending</h2>
+  <p>The For You pipeline's <code>BlenderSelector</code> mixes organic posts with ads,
+  who-to-follow modules, prompts and a pinned push-to-home post — under strict brand-safety
+  adjacency rules.</p>
+
+  <div class="diagram">
+    <div class="mermaid">
+flowchart TB
+  PART["partition FeedItems →<br/>posts · ads · wtf · prompts · push"]:::p
+  PART --> PICK{AdsBlenderType?}:::d
+  PICK -->|partition_organic<br/>(default)| PO["PartitionOrganicBlender<br/>group safe posts, place ads in<br/>(above, AD, below) triples"]:::b
+  PICK -->|safe_gap| SG["SafeGapBlender<br/>greedily place each ad at the<br/>safe gap nearest its ideal slot"]:::b
+  PO --> FIN
+  SG --> FIN
+  FIN["insert prompts (front) →<br/>who-to-follow (fixed pos) →<br/>pin push-to-home (idx 0) →<br/>truncate · never end on an ad"]:::f
+  FIN --> OUT([final FeedItem timeline]):::o
+  classDef p fill:#161d2b,stroke:#36506f,color:#cdd6e3
+  classDef d fill:#241a10,stroke:#e3b341,color:#ffe9b8
+  classDef b fill:#1d1430,stroke:#bc8cff,color:#e3d4ff
+  classDef f fill:#10243a,stroke:#4ea1ff,color:#cde6ff
+  classDef o fill:#10243a,stroke:#36d6c3,color:#9ff0e6
+    </div>
+  </div>
+
+  <h4>Brand-safety adjacency rules</h4>
+  <ul>
+    <li><b>Avoid</b> — a post with a <code>MediumRisk</code> verdict; ads must never be adjacent to one (unknown safety conservatively defaults to MediumRisk).</li>
+    <li><b>Safe gap</b> — a slot is safe only if neither neighbouring post is "avoid".</li>
+    <li><b>Spacing</b> — inferred from the first few ads' requested positions (min ≥ 3), else default {requested 3, min 2}.</li>
+    <li>Drop the ad if a neighbour triggers its brand-safety-risk/handle-blocklist/keyword adjacency controls.</li>
+    <li>Need ≥ 5 posts before any ad; <strong>the timeline never ends on an ad</strong> (trailing ad popped).</li>
+  </ul>
+</section>
+
+<section id="grox">
+  <h2 class="sec"><span class="n">10</span> Grox — Content Understanding <span class="pill p-py" style="font-size:12px">Python</span></h2>
+  <p>Grox is the upstream <strong>signal factory</strong>. It is not on the request path — it
+  continuously consumes posts from Kafka, runs Grok-family LLM/VLM classifiers, multimodal
+  embedders and summarizers as a DAG engine, and writes safety labels, embeddings and quality
+  scores to Manhattan/Strato + Kafka. Home-mixer's brand-safety/VF filters and Phoenix's retrieval
+  corpus consume those signals.</p>
+
+  <h3>Process topology &amp; the DAG engine</h3>
+  <div class="diagram">
+    <div class="mermaid">
+flowchart LR
+  KS[(Kafka topics<br/>posts / embed reqs)]:::k
+  KS --> LD["KafkaLoader<br/>prefetch + threadpool deser"]:::ld
+  LD --> GEN["PriorityTaskGenerator<br/>weighted-random merge of<br/>streams · per-stream QPS cap"]:::ld
+  GEN --> DISP["Dispatcher<br/>fill / result / retry loops<br/>max_in_flight backpressure"]:::ld
+  DISP -->|task_queue| ENG["Engine<br/>async run loop<br/>create_task per payload"]:::e
+  ENG --> PM["PlanMaster<br/>fan out to all 9 plans<br/>(eligibility-gated)"]:::pm
+  PM --> PLAN["Plan = task DAG<br/>future-based dataflow<br/>SKIP propagates downstream"]:::pl
+  PLAN --> SINK[(Strato / Manhattan<br/>+ Kafka sinks)]:::k
+  DISP -->|resp_queue ack| KS
+  classDef k fill:#1a1410,stroke:#c08a4a,color:#ffd9a8
+  classDef ld fill:#161d2b,stroke:#36506f,color:#cdd6e3
+  classDef e fill:#10243a,stroke:#4ea1ff,color:#cde6ff
+  classDef pm fill:#1d1430,stroke:#bc8cff,color:#e3d4ff
+  classDef pl fill:#241a10,stroke:#e3b341,color:#ffe9b8
+    </div>
+    <div class="cap">A Plan is a DAG: every task launched as a coroutine; ordering enforced only by awaiting dependency futures. A SKIP transitively short-circuits the rest.</div>
+  </div>
+
+  <p><strong>Primitives:</strong> a <code>TaskPayload</code> (post + eligibilities) flows through
+  mp queues. A <code>Plan</code> declares <code>TASKS</code> + <code>TASK_DEPENDENCIES</code> +
+  <code>REQUIRED_ELIGIBILITY</code>. <code>PlanMaster</code> runs all 9 plans concurrently per
+  payload; non-eligible plans no-op. Every plan shares the prefix
+  <code>filter → rate-limit (60s TTL dedupe) → media-hydrate → [ASR] → model task → sink(s)</code>.</p>
+
+  <h3>The workload pipelines</h3>
+  <table>
+    <tr><th>Plan</th><th>What it produces</th><th>Model</th><th>Consumed by</th></tr>
+    <tr><td>Spam comment</td><td>spam/not on low-follower replies</td><td>Grok VLM</td><td>reply-spam labels</td></tr>
+    <tr><td>Safety PTOS</td><td>2-stage: category → per-policy violation</td><td>Grok VLM / Grok-4.2 reasoning (deluxe)</td><td>home-mixer PTOS &amp; brand-safety</td></tr>
+    <tr><td>Post-safety deluxe</td><td>bool metadata: nsfw/gore/violent/spam/adult</td><td>Grok VLM (critical)</td><td>VF filter, brand safety</td></tr>
+    <tr><td>Initial banger</td><td>quality score, tags, taxonomy topics, slop, has-minor</td><td>Grok VLM + cached taxonomy</td><td>Unified Post Annotations → ranking features</td></tr>
+    <tr><td>Reply ranking</td><td>reply quality score (high-reach threads)</td><td>Grok mini→VLM fallback</td><td>conversation ranking</td></tr>
+    <tr><td>Multimodal embedding V5</td><td>1024-d L2-normed post embedding (text+image+video+ASR)</td><td>RECSYS_EMBED_V5</td><td>retrieval / searchai corpus</td></tr>
+  </table>
+
+  <p>Classifiers are <strong>prompt-based LLM/VLM samplers</strong> (near-zero temperature for
+  determinism), not trained heads — system prompt + rendered post/thread → parse a JSON verdict.
+  The V5 embedder is Matryoshka-style: produce, <strong>truncate to 1024</strong>, re-normalise.
+  Sinks are env-gated so each deployment flavour writes only its own outputs.</p>
+
+  <div class="callout c-note"><span class="t">The feedback loop</span>
+  <p>Grox closes the loop: it turns raw posts into the safety verdicts (<code>GROK_NSFA</code>,
+  PTOS labels) that home-mixer's <a href="#homemixer">VF/brand-safety filters</a> enforce, and the
+  multimodal embeddings that feed <a href="#retrieval">Phoenix retrieval</a>. No hand-engineered
+  features — just learned signals flowing through Strato/Kafka.</p></div>
+</section>
+
+<section id="e2e">
+  <h2 class="sec"><span class="n">11</span> End-to-End Request Walkthrough</h2>
+  <p>Putting all five components together — what actually happens when your phone asks for the
+  For You feed:</p>
+  <div class="steps">
+    <div class="step"><b>Request arrives</b> at home-mixer's gRPC <code>ForYouFeedService</code>
+    with your <code>viewer_id</code>. The QueryBuilder fetches viewer roles (200 ms budget),
+    resolves feature switches, builds a <code>ScoredPostsQuery</code>.</div>
+    <div class="step"><b>For You pipeline</b> runs; its <code>ScoredPostsSource</code> invokes the
+    inner <b>Scored-Posts pipeline</b>.</div>
+    <div class="step"><b>Query hydration</b> (15 parallel) — your engagement sequences, follow /
+    block / mute / subscribe sets, topics, IP, impression bloom filter are fetched concurrently.</div>
+    <div class="step"><b>Sourcing</b> (6 parallel) — <em>Thunder</em> returns recent in-network posts
+    from sub-ms in-memory store; <em>Phoenix retrieval</em> embeds your history into a user vector
+    and dot-products it against the precomputed corpus for top-~200 out-of-network posts; TweetMixer
+    / MoE / topics sources add more.</div>
+    <div class="step"><b>Hydration</b> (10 parallel) — core data, author, media, quote, language,
+    and Grox-derived brand-safety signals are attached to each candidate.</div>
+    <div class="step"><b>Filtering</b> (14 sequential) — duplicates, over-age, your own posts,
+    already-seen/served, muted keywords, blocked authors are removed.</div>
+    <div class="step"><b>Scoring</b> — <em>PhoenixScorer</em> sends all surviving candidates +
+    your scoring sequence in one batched call to the Grok ranking transformer (candidate-isolated)
+    → ~19 engagement probabilities per post. <em>RankingScorer</em> collapses them into one score
+    via weighted sum → negative-offset normalize → author-diversity decay → OON discount.
+    <em>VMRanker</em> optionally value-model re-ranks with DPP diversity.</div>
+    <div class="step"><b>Selection</b> — sort by final score, keep top-K.</div>
+    <div class="step"><b>Post-selection</b> — visibility filtering (deleted/spam/gore via Grox
+    labels), conversation dedup; truncate to result size. Side effects (caching, logging) fire
+    detached.</div>
+    <div class="step"><b>Blending</b> — back in the For You pipeline, the <code>BlenderSelector</code>
+    weaves in ads (brand-safe adjacency), who-to-follow, prompts, pinned post → the final ordered
+    timeline returned to your device.</div>
+  </div>
+</section>
+
+<section id="decisions">
+  <h2 class="sec"><span class="n">12</span> Key Design Decisions</h2>
+  <div class="grid g2">
+    <div class="card"><h4>No hand-engineered features</h4><p style="font-size:13.5px">Relevance is
+    learned end-to-end by the transformer from raw engagement sequences. Drastically simpler data
+    &amp; serving pipelines.</p></div>
+    <div class="card"><h4>Candidate isolation</h4><p style="font-size:13.5px">Attention mask forbids
+    candidate↔candidate attention → batch-invariant, deterministic, cacheable scores.</p></div>
+    <div class="card"><h4>Hash-based embeddings</h4><p style="font-size:13.5px">Multiple hash
+    functions into a fixed shared table — no unbounded per-ID vocab, handles the open-world ID
+    space.</p></div>
+    <div class="card"><h4>Multi-action prediction</h4><p style="font-size:13.5px">Predict ~19
+    independent action probabilities, not one relevance scalar — negative actions explicitly push
+    bad content down.</p></div>
+    <div class="card"><h4>Two-stage retrieval→ranking</h4><p style="font-size:13.5px">Cheap dot
+    product narrows millions → hundreds; expensive transformer ranks the few. The only tractable
+    shape at scale.</p></div>
+    <div class="card"><h4>Composable pipeline</h4><p style="font-size:13.5px">One generic engine,
+    fixed stage order, explicit parallel/sequential contract, graceful per-component error
+    isolation.</p></div>
+  </div>
+</section>
+
+<section id="caveats">
+  <h2 class="sec"><span class="n">13</span> Caveats &amp; Sources</h2>
+  <div class="callout c-warn"><span class="t">This is a partial open-source release</span>
+  <p>Several numeric constants and modules are <strong>not</strong> in the published subset and are
+  described by role, not value:</p>
+  <ul style="margin-top:8px">
+    <li>home-mixer's <code>params</code> (all <code>*Weight</code>s, <code>RESULT_SIZE</code>,
+    <code>TOP_K_CANDIDATES_TO_SELECT</code>, <code>MAX_POST_AGE</code>,
+    <code>NEGATIVE_SCORES_OFFSET</code>, OON/diversity factors) and <code>clients</code> are
+    runtime feature-switch / external modules.</li>
+    <li>Thunder's <code>config</code> constants (per-author caps, retention) — defaults reconstructed
+    from use sites (e.g. 2-day retention, 2-min trim).</li>
+    <li>Phoenix's real <code>config.json</code> / 1.4 GB embedding tables / 537K corpus ship inside
+    a ~3 GB Git-LFS archive; config numbers here are the released "mini" config (D=128, 4 layers,
+    4 heads, S≈127, C≈64, vocab 1M×3, 2 hashes, ~19 actions).</li>
+    <li>Grox's <code>lm/</code>, <code>prompts/</code>, <code>config/</code> (prompt text, model
+    endpoints) are external/stubbed.</li>
+    <li><code>scorers/weighted_scorer.rs</code>, <code>author_diversity_scorer.rs</code>,
+    <code>oon_scorer.rs</code> are superseded dead code (absent from <code>scorers/mod.rs</code>);
+    the live logic is consolidated in <code>RankingScorer</code>.</li>
+  </ul>
+  <p>Everything else is grounded in the source: <code>candidate-pipeline/</code>,
+  <code>home-mixer/</code>, <code>thunder/</code>, <code>phoenix/</code> (recsys_model.py,
+  recsys_retrieval_model.py, grok.py, run_pipeline.py, runners.py), <code>grox/</code>, and the
+  repository READMEs.</p></div>
+</section>
+
+<footer>
+  Generated architecture analysis of the X "For You" recommendation algorithm ·
+  diagrams rendered with Mermaid · single self-contained file.
+</footer>
+
+</main>
+</div>
+
+<script>
+  mermaid.initialize({
+    startOnLoad:true, theme:'base', securityLevel:'loose',
+    themeVariables:{
+      darkMode:true, background:'#11151f',
+      primaryColor:'#161d2b', primaryTextColor:'#cdd6e3', primaryBorderColor:'#36506f',
+      lineColor:'#5d6878', secondaryColor:'#1d1430', tertiaryColor:'#10243a',
+      fontFamily:'SF Mono, JetBrains Mono, monospace', fontSize:'13px'
+    },
+    flowchart:{curve:'basis', padding:14, nodeSpacing:42, rankSpacing:52, useMaxWidth:true}
+  });
+
+  // scroll progress + active nav
+  const bar=document.getElementById('bar');
+  const links=[...document.querySelectorAll('nav.side a')];
+  const secs=links.map(a=>document.getElementById(a.getAttribute('href').slice(1))).filter(Boolean);
+  function onScroll(){
+    const h=document.documentElement;
+    bar.style.width=(h.scrollTop/(h.scrollHeight-h.clientHeight)*100)+'%';
+    let cur=secs[0];
+    for(const s of secs){ if(s.getBoundingClientRect().top<=140) cur=s; }
+    links.forEach(l=>l.classList.toggle('on', l.getAttribute('href')==='#'+(cur&&cur.id)));
+  }
+  document.addEventListener('scroll',onScroll,{passive:true}); onScroll();
+</script>
+</body>
+</html>
