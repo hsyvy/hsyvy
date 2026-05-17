@@ -106,63 +106,8 @@ body {
   line-height: 1.5;
 }
 
-/* ---- interest cut-outs ------------------------------------- */
-.section-label {
-  font-family: "Archivo Black", Impact, sans-serif;
-  font-size: 1rem;
-  letter-spacing: 0.12em;
-  margin: clamp(2.5rem, 7vw, 4rem) 0 1.25rem;
-  color: var(--blue);
-  mix-blend-mode: multiply;
-}
-.tags {
-  list-style: none;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.9rem 1.1rem;
-}
-.tag {
-  position: relative;
-  font-weight: 700;
-  font-size: 0.95rem;
-  padding: 0.5rem 0.95rem;
-  border: 2.5px solid var(--ink);
-  background: var(--paper);
-  mix-blend-mode: multiply;
-  box-shadow: 5px 5px 0 var(--ink);
-  transition: transform 0.12s ease, box-shadow 0.12s ease;
-}
-.tag::before {                     /* strip of "tape" */
-  content: "";
-  position: absolute;
-  top: -9px; left: 50%;
-  width: 34px; height: 16px;
-  transform: translateX(-50%) rotate(-4deg);
-  background: var(--pink);
-  opacity: 0.65;
-  mix-blend-mode: multiply;
-}
-.tag:nth-child(odd)        { transform: rotate(-2.2deg); }
-.tag:nth-child(even)       { transform: rotate(1.8deg); }
-.tag:nth-child(3n) { color: var(--paper); background: var(--blue); border-color: var(--blue); }
-.tag:nth-child(3n+1)::before { background: var(--blue); }
-.tag:hover {
-  transform: rotate(0) translate(-2px, -2px);
-  box-shadow: 8px 8px 0 var(--pink);
-}
-
-/* ---- pull-quote clipping ----------------------------------- */
-.clipping {
-  margin: clamp(2.5rem, 7vw, 4rem) 0;
-  max-width: 48ch;
-  border-left: 6px solid var(--pink);
-  padding: 0.5rem 0 0.5rem 1.4rem;
-  font-size: clamp(1.05rem, 2.6vw, 1.45rem);
-  line-height: 1.5;
-}
-
 /* ---- link chips -------------------------------------------- */
-.links { display: flex; flex-wrap: wrap; gap: 1rem; }
+.links { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: clamp(2rem, 6vw, 3.5rem); }
 .chip {
   font-family: "Archivo Black", Impact, sans-serif;
   font-size: 0.92rem;
@@ -192,14 +137,6 @@ body {
   color: var(--blue);
 }
 
-/* ---- unfilled placeholders: obviously a draft -------------- */
-.ph {
-  background: repeating-linear-gradient(45deg, transparent 0 5px, color-mix(in srgb, var(--pink) 35%, transparent) 5px 10px);
-  border-bottom: 2px dotted var(--pink);
-  padding: 0 0.15em;
-  font-style: italic;
-}
-
 a { color: var(--blue); }
 
 /* ---- registration "settle" on load ------------------------- */
@@ -211,5 +148,5 @@ a { color: var(--blue); }
 
 @media (prefers-reduced-motion: reduce) {
   .title::before, .title::after { animation: none; }
-  .tag, .chip { transition: none; }
+  .chip { transition: none; }
 }
