@@ -80,22 +80,3 @@ It needs two repo secrets:
    gh secret set CLOUDFLARE_API_TOKEN
    gh secret set CLOUDFLARE_ACCOUNT_ID
    ```
-
-The next push (or Actions → *Deploy to Cloudflare Pages* → Run workflow)
-publishes to `https://hsyvy.pages.dev`. Until the secrets exist the job
-no-ops with a green check, so it never blocks other pushes.
-
-> The originally auto-created **Worker** (`hsyvy.<acct>.workers.dev`) is
-> redundant — delete it: Workers & Pages → `hsyvy` (Worker) → Settings →
-> Delete, or `wrangler delete --name hsyvy`. `wrangler.jsonc` (Worker
-> config) was removed from this repo for the same reason.
-
-## Adding a custom domain later
-
-DNS-only change, no code change (paths are already relative):
-
-1. Cloudflare Pages project → **Custom domains → Set up a domain** → enter it.
-2. If the domain is on Cloudflare DNS, the `CNAME` is added automatically;
-   otherwise add `CNAME <name> hsyvy.pages.dev`.
-3. Leave GitHub Pages on its `*.github.io` URL as the backup (a custom domain
-   can only point at one host at a time — Cloudflare wins as primary).
